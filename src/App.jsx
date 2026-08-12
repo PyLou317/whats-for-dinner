@@ -8,7 +8,7 @@ import {
 } from './lib/supabaseClient';
 import Auth from './components/Auth';
 import SwipeDeck from './components/SwipeDeck';
-import RecipeManager from './components/RecipeManager';
+import RecipeManager from './components/RecipeManager/RecipeManager.jsx';
 import MatchHistory from './components/MatchHistory';
 import Navbar from './components/Navbar';
 

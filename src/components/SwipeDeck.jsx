@@ -2,15 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, useMotionValue, useTransform, AnimatePresence, animate } from 'framer-motion';
 import confetti from 'canvas-confetti';
 import { supabase, isConfigured, INITIAL_RECIPE_PRESETS, ensureHouseholdRecipes } from '../lib/supabaseClient';
-import { 
-  Heart, 
-  X, 
-  Sparkles, 
-  Clock, 
-  Utensils, 
-  RotateCcw, 
-  BookOpen, 
-  ChefHat, 
+import {
+  Heart,
+  X,
+  Sparkles,
+  Clock,
+  Utensils,
+  RotateCcw,
+  BookOpen,
+  ChefHat,
   Info,
   CheckCircle2
 } from 'lucide-react';
@@ -21,10 +21,8 @@ function CardItem({
   isTop,
   index,
   totalCount,
-  partnerDecision,
   onSwipe,
   onSelectDetail,
-  onSimulatePartner,
   registerSwipeTrigger,
 }) {
   const x = useMotionValue(0);
@@ -95,7 +93,7 @@ function CardItem({
             <Clock className="w-3.5 h-3.5" />
             {recipe.prep_time || '20 mins'}
           </span>
-          
+
           <button
             type="button"
             onClick={(e) => {
@@ -268,7 +266,7 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
       if (saved) {
         JSON.parse(saved).forEach((id) => mySwiped.add(id));
       }
-    } catch (e) {}
+    } catch (e) { }
 
     if (isConfigured && profile?.household_id) {
       try {
@@ -297,7 +295,7 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
 
     try {
       localStorage.setItem(storageKey, JSON.stringify(Array.from(mySwiped)));
-    } catch (e) {}
+    } catch (e) { }
 
     setDeck(allRecipes);
     setSwipedRecipeIds(mySwiped);
@@ -325,7 +323,7 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
       try {
         const storageKey = `whats_for_dinner_swipes_${user?.id || 'demo'}_${todayStr}`;
         localStorage.setItem(storageKey, JSON.stringify(Array.from(next)));
-      } catch (e) {}
+      } catch (e) { }
       return next;
     });
 
@@ -391,7 +389,7 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
     try {
       const storageKey = `whats_for_dinner_swipes_${user?.id || 'demo'}_${todayStr}`;
       localStorage.removeItem(storageKey);
-    } catch (e) {}
+    } catch (e) { }
 
     if (isConfigured && profile?.household_id && user?.id) {
       try {
@@ -417,11 +415,10 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
           <button
             key={tag}
             onClick={() => setTagFilter(tag)}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 ${
-              tagFilter === tag
-                ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/30'
-                : 'glass-panel text-slate-300 hover:bg-slate-800'
-            }`}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 ${tagFilter === tag
+              ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/30'
+              : 'glass-panel text-slate-300 hover:bg-slate-800'
+              }`}
           >
             {tag === 'All' && <ChefHat className="w-3.5 h-3.5" />}
             {tag}

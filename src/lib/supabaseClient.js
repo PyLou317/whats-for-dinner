@@ -6,20 +6,20 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 // Determine if Supabase credentials are correctly provided
 export const isConfigured = Boolean(
-  supabaseUrl && 
-  supabaseAnonKey && 
+  supabaseUrl &&
+  supabaseAnonKey &&
   !supabaseUrl.includes('YOUR_SUPABASE_URL') &&
   !supabaseUrl.includes('example.supabase.co')
 );
 
 // Fallback dummy client if not configured to prevent instant crashes
-export const supabase = isConfigured 
+export const supabase = isConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        persistSession: true,
-        autoRefreshToken: true,
-      },
-    })
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+    },
+  })
   : createClient('https://placeholder-project.supabase.co', 'placeholder-anon-key');
 
 // Helper to generate a 6-character uppercase alphanumeric code
@@ -90,10 +90,10 @@ export async function searchTheMealDB(query = '') {
     const url = query.trim()
       ? `https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(query)}`
       : `https://www.themealdb.com/api/json/v1/1/search.php?s=chicken`;
-    
+
     const res = await fetch(url);
     const data = await res.json();
-    
+
     if (!data.meals) return [];
 
     return data.meals.map(meal => {
