@@ -22,6 +22,7 @@ function CardItem({
   index,
   totalCount,
   partnerDecision,
+  exitDirection = 'right',
   onSwipe,
   onSelectDetail,
   onSimulatePartner,
@@ -30,15 +31,12 @@ function CardItem({
   const rotate = useTransform(x, [-200, 200], [-18, 18]);
   const likeBadgeOpacity = useTransform(x, [15, 90], [0, 1]);
   const passBadgeOpacity = useTransform(x, [-15, -90], [0, 1]);
-  const [exitDirection, setExitDirection] = useState('right');
 
   const handleDragEnd = (_e, info) => {
     if (!isTop) return;
     if (info.offset.x > 80 || info.velocity.x > 300) {
-      setExitDirection('right');
       onSwipe(recipe, 'yes', 'right');
     } else if (info.offset.x < -80 || info.velocity.x < -300) {
-      setExitDirection('left');
       onSwipe(recipe, 'no', 'left');
     } else {
       animate(x, 0, { type: 'spring', stiffness: 300, damping: 20 });
@@ -71,6 +69,7 @@ function CardItem({
       }}
       className="absolute inset-0 rounded-3xl glass-panel overflow-hidden shadow-2xl border border-slate-700/60 flex flex-col justify-between cursor-grab active:cursor-grabbing select-none"
     >
+
       {/* Top Recipe Image */}
       <div className="relative h-64 w-full overflow-hidden bg-slate-900">
         <img
@@ -177,6 +176,7 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
   const [swipedRecipeIds, setSwipedRecipeIds] = useState(new Set());
   const [userSwipes, setUserSwipes] = useState({}); // recipeId -> 'yes'|'no'
   const [partnerSwipes, setPartnerSwipes] = useState({}); // recipeId -> 'yes'|'no'
+  const [swipeDirections, setSwipeDirections] = useState({}); // recipeId -> 'left'|'right'
   const [matchedRecipe, setMatchedRecipe] = useState(null);
   const [selectedRecipeDetail, setSelectedRecipeDetail] = useState(null);
   const [tagFilter, setTagFilter] = useState('All');
@@ -332,11 +332,15 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
   const currentTopCard = availableCards[0];
 
   // Robust Swipe Handler (Synchronous state commit for flawless AnimatePresence transitions)
-  const handleSwipe = (recipe, decision, direction = 'right') => {
+  const handleSwipe = (recipe, decision, direction = null) => {
     if (!recipe || isAnimatingRef.current) return;
     isAnimatingRef.current = true;
 
+    const finalDirection = direction || (decision === 'yes' ? 'right' : 'left');
     const recipeId = recipe.id;
+
+    // Track direction for exit animation
+    setSwipeDirections((prev) => ({ ...prev, [recipeId]: finalDirection }));
 
     // 1. Immediately mark recipe as swiped so React & AnimatePresence animate it out
     setSwipedRecipeIds((prev) => {
@@ -403,6 +407,7 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
     setSwipedRecipeIds(new Set());
     setUserSwipes({});
     setPartnerSwipes({});
+    setSwipeDirections({});
     isAnimatingRef.current = false;
 
     try {
@@ -464,6 +469,7 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
                   index={index}
                   totalCount={availableCards.length}
                   partnerDecision={partnerSwipes[recipe.id]}
+                  exitDirection={swipeDirections[recipe.id] || 'right'}
                   onSwipe={handleSwipe}
                   onSelectDetail={setSelectedRecipeDetail}
                   onSimulatePartner={simulatePartnerSwipe}
