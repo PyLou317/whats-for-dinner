@@ -161,6 +161,10 @@ function CardItem({
               <span className="text-emerald-400 font-bold flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Swiped YES!
               </span>
+            ) : isConfigured ? (
+              <span className="text-slate-400 font-medium italic flex items-center gap-1">
+                Waiting for partner ⏳
+              </span>
             ) : (
               <button
                 type="button"
@@ -175,6 +179,7 @@ function CardItem({
             )}
           </div>
         )}
+
       </div>
     </motion.div>
   );
