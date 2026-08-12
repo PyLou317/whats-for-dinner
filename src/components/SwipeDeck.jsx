@@ -43,14 +43,48 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
   const likeBadgeOpacity = useTransform(x, [15, 90], [0, 1]);
   const passBadgeOpacity = useTransform(x, [-15, -90], [0, 1]);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Helper for consistent local timezone YYYY-MM-DD string
+  const getLocalDateStr = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
-  // 1. Load initial recipes & existing swipes for today
+  const [todayStr, setTodayStr] = useState(getLocalDateStr());
+
+  // 1. Auto-reset at midnight local time
+  useEffect(() => {
+    const checkDateChange = () => {
+      const currentLocal = getLocalDateStr();
+      if (currentLocal !== todayStr) {
+        setTodayStr(currentLocal);
+      }
+    };
+
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    const msUntilMidnight = midnight.getTime() - now.getTime();
+
+    const timer = setTimeout(() => {
+      checkDateChange();
+    }, msUntilMidnight);
+
+    const interval = setInterval(checkDateChange, 60000); // Also check every minute in case tab was sleeping
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, [todayStr]);
+
+  // 2. Load initial recipes & existing swipes for today
   useEffect(() => {
     fetchTodaySwipesAndRecipes();
-  }, [recipes, profile?.household_id]);
+  }, [recipes, profile?.household_id, todayStr]);
 
-  // 2. Set up Supabase Realtime Subscription for swipes in current household
+  // 3. Set up Supabase Realtime Subscription for swipes in current household
   useEffect(() => {
     if (!isConfigured || !profile?.household_id) return;
 
@@ -86,7 +120,7 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [profile?.household_id, user?.id]);
+  }, [profile?.household_id, user?.id, todayStr]);
 
   const fetchTodaySwipesAndRecipes = async () => {
     setLoading(true);
@@ -94,6 +128,14 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
     let mySwiped = new Set();
     let mySwipesObj = {};
     let partnerSwipesObj = {};
+
+    const storageKey = `whats_for_dinner_swipes_${user?.id || 'demo'}_${todayStr}`;
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        JSON.parse(saved).forEach((id) => mySwiped.add(id));
+      }
+    } catch (e) {}
 
     if (isConfigured && profile?.household_id) {
       try {
@@ -120,13 +162,16 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
       }
     }
 
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(Array.from(mySwiped)));
+    } catch (e) {}
+
     setDeck(allRecipes);
     setSwipedRecipeIds(mySwiped);
     setUserSwipes(mySwipesObj);
     setPartnerSwipes(partnerSwipesObj);
     setLoading(false);
   };
-
 
   const availableCards = deck.filter((recipe) => {
     if (swipedRecipeIds.has(recipe.id)) return false;
@@ -154,7 +199,15 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
 
     // 2. Commit swipe state after animation completes
     setTimeout(async () => {
-      setSwipedRecipeIds((prev) => new Set([...prev, recipeId]));
+      setSwipedRecipeIds((prev) => {
+        const next = new Set([...prev, recipeId]);
+        try {
+          const storageKey = `whats_for_dinner_swipes_${user?.id || 'demo'}_${todayStr}`;
+          localStorage.setItem(storageKey, JSON.stringify(Array.from(next)));
+        } catch (e) {}
+        return next;
+      });
+
       const updatedUserSwipes = { ...userSwipes, [recipeId]: decision };
       setUserSwipes(updatedUserSwipes);
       
@@ -210,13 +263,32 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
     }
   };
 
-  const handleResetSwipes = () => {
+  const handleResetSwipes = async () => {
     setSwipedRecipeIds(new Set());
     setUserSwipes({});
     setPartnerSwipes({});
     x.set(0);
     isAnimatingRef.current = false;
+
+    try {
+      const storageKey = `whats_for_dinner_swipes_${user?.id || 'demo'}_${todayStr}`;
+      localStorage.removeItem(storageKey);
+    } catch (e) {}
+
+    if (isConfigured && profile?.household_id && user?.id) {
+      try {
+        await supabase
+          .from('swipes')
+          .delete()
+          .eq('household_id', profile.household_id)
+          .eq('user_id', user.id)
+          .eq('swipe_date', todayStr);
+      } catch (err) {
+        console.error('Failed to reset swipes in database:', err);
+      }
+    }
   };
+
 
   const allTags = ['All', ...new Set(deck.flatMap((r) => r.tags || []))].slice(0, 7);
 
