@@ -22,29 +22,38 @@ function CardItem({
   index,
   totalCount,
   partnerDecision,
-  exitDirection = 'right',
   onSwipe,
   onSelectDetail,
   onSimulatePartner,
+  registerSwipeTrigger,
 }) {
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-18, 18]);
   const likeBadgeOpacity = useTransform(x, [15, 90], [0, 1]);
   const passBadgeOpacity = useTransform(x, [-15, -90], [0, 1]);
 
+  const performSwipe = (decision, direction) => {
+    const targetX = direction === 'left' ? -600 : 600;
+    animate(x, targetX, { duration: 0.2, ease: [0.4, 0, 0.2, 1] });
+    onSwipe(recipe, decision, direction);
+  };
+
+  useEffect(() => {
+    if (isTop && registerSwipeTrigger) {
+      registerSwipeTrigger(performSwipe);
+    }
+  }, [isTop, recipe.id]);
+
   const handleDragEnd = (_e, info) => {
     if (!isTop) return;
     if (info.offset.x > 80 || info.velocity.x > 300) {
-      onSwipe(recipe, 'yes', 'right');
+      performSwipe('yes', 'right');
     } else if (info.offset.x < -80 || info.velocity.x < -300) {
-      onSwipe(recipe, 'no', 'left');
+      performSwipe('no', 'left');
     } else {
       animate(x, 0, { type: 'spring', stiffness: 300, damping: 20 });
     }
   };
-
-  const targetX = exitDirection === 'left' ? -600 : 600;
-  const targetRotate = exitDirection === 'left' ? -25 : 25;
 
   return (
     <motion.div
@@ -65,10 +74,8 @@ function CardItem({
         y: index * 12,
       }}
       exit={{
-        x: targetX,
-        rotate: targetRotate,
         opacity: 0,
-        transition: { duration: 0.22, ease: [0.4, 0, 0.2, 1] },
+        transition: { duration: 0.15 },
       }}
       className="absolute inset-0 rounded-3xl glass-panel overflow-hidden shadow-2xl border border-slate-700/60 flex flex-col justify-between cursor-grab active:cursor-grabbing select-none"
     >
@@ -178,11 +185,11 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
   const [swipedRecipeIds, setSwipedRecipeIds] = useState(new Set());
   const [userSwipes, setUserSwipes] = useState({}); // recipeId -> 'yes'|'no'
   const [partnerSwipes, setPartnerSwipes] = useState({}); // recipeId -> 'yes'|'no'
-  const [swipeDirections, setSwipeDirections] = useState({}); // recipeId -> 'left'|'right'
   const [matchedRecipe, setMatchedRecipe] = useState(null);
   const [selectedRecipeDetail, setSelectedRecipeDetail] = useState(null);
   const [tagFilter, setTagFilter] = useState('All');
   const [loading, setLoading] = useState(true);
+  const swipeTopCardRef = useRef(null);
 
   const userSwipesRef = useRef(userSwipes);
   useEffect(() => {
@@ -332,17 +339,12 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
 
   const currentTopCard = availableCards[0];
 
-  // Synchronous, atomic swipe commit (No race conditions, no stale refs)
-  const handleSwipe = (recipe, decision, direction = null) => {
+  // Robust Swipe Handler
+  const handleSwipe = (recipe, decision, direction = 'right') => {
     if (!recipe) return;
-
     const recipeId = recipe.id;
-    const finalDirection = direction || (decision === 'yes' ? 'right' : 'left');
 
-    // 1. Immediately record direction for exit transition
-    setSwipeDirections((prev) => ({ ...prev, [recipeId]: finalDirection }));
-
-    // 2. Immediately record swiped ID in state & localStorage (synchronous state update)
+    // 1. Immediately mark recipe as swiped in React state & localStorage
     setSwipedRecipeIds((prev) => {
       const next = new Set([...prev, recipeId]);
       try {
@@ -352,21 +354,29 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
       return next;
     });
 
-    // 3. Immediately record user swipe decision
     setUserSwipes((prev) => ({ ...prev, [recipeId]: decision }));
 
-    // 4. Insert/Upsert swipe into Supabase
+    // 2. Insert/Upsert swipe into Supabase with explicit unique constraint conflict target
     if (isConfigured && profile?.household_id && user?.id) {
-      supabase.from('swipes').upsert({
-        household_id: profile.household_id,
-        recipe_id: recipeId,
-        user_id: user.id,
-        decision,
-        swipe_date: todayStr,
-      }).catch((err) => console.error('Failed to record swipe:', err));
+      supabase
+        .from('swipes')
+        .upsert(
+          {
+            household_id: profile.household_id,
+            recipe_id: recipeId,
+            user_id: user.id,
+            decision,
+            swipe_date: todayStr,
+          },
+          { onConflict: 'user_id,recipe_id,swipe_date' }
+        )
+        .then(({ error }) => {
+          if (error) console.error('Supabase swipe error:', error);
+        })
+        .catch((err) => console.error('Failed to record swipe:', err));
     }
 
-    // 5. Check for match
+    // 3. Check for match
     if (decision === 'yes' && partnerSwipes[recipeId] === 'yes') {
       triggerMatchOverlay(recipe);
     }
@@ -402,7 +412,6 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
     setSwipedRecipeIds(new Set());
     setUserSwipes({});
     setPartnerSwipes({});
-    setSwipeDirections({});
 
     try {
       const storageKey = `whats_for_dinner_swipes_${user?.id || 'demo'}_${todayStr}`;
@@ -454,7 +463,7 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
           </div>
         ) : availableCards.length > 0 ? (
           <div className="relative w-full h-[460px] flex items-center justify-center">
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence>
               {availableCards.slice(0, 3).map((recipe, index) => (
                 <CardItem
                   key={recipe.id}
@@ -463,10 +472,12 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
                   index={index}
                   totalCount={availableCards.length}
                   partnerDecision={partnerSwipes[recipe.id]}
-                  exitDirection={swipeDirections[recipe.id] || 'right'}
                   onSwipe={handleSwipe}
                   onSelectDetail={setSelectedRecipeDetail}
                   onSimulatePartner={simulatePartnerSwipe}
+                  registerSwipeTrigger={(fn) => {
+                    if (index === 0) swipeTopCardRef.current = fn;
+                  }}
                 />
               ))}
             </AnimatePresence>
@@ -510,7 +521,9 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
           <button
             type="button"
             onClick={() => {
-              if (currentTopCard) {
+              if (swipeTopCardRef.current) {
+                swipeTopCardRef.current('no', 'left');
+              } else if (currentTopCard) {
                 handleSwipe(currentTopCard, 'no', 'left');
               }
             }}
@@ -534,7 +547,9 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
           <button
             type="button"
             onClick={() => {
-              if (currentTopCard) {
+              if (swipeTopCardRef.current) {
+                swipeTopCardRef.current('yes', 'right');
+              } else if (currentTopCard) {
                 handleSwipe(currentTopCard, 'yes', 'right');
               }
             }}
