@@ -149,41 +149,11 @@ function CardItem({
             </span>
           ))}
         </div>
-
-        {/* Partner status pill */}
-        {isTop && (
-          <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
-            <span className="text-slate-400 flex items-center gap-1.5">
-              <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />
-              Partner status:
-            </span>
-            {partnerDecision === 'yes' ? (
-              <span className="text-emerald-400 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Swiped YES!
-              </span>
-            ) : isConfigured ? (
-              <span className="text-slate-400 font-medium italic flex items-center gap-1">
-                Waiting for partner ⏳
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSimulatePartner(recipe.id);
-                }}
-                className="text-[11px] text-amber-400 hover:text-amber-300 underline font-medium"
-              >
-                Simulate Partner Swipe
-              </button>
-            )}
-          </div>
-        )}
-
       </div>
     </motion.div>
   );
 }
+
 
 export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onNavigateToCookbook }) {
   const [deck, setDeck] = useState([]);
