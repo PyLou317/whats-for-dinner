@@ -15,6 +15,163 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
+// Sub-component for individual cards to isolate motion values and exit transitions
+function CardItem({
+  recipe,
+  isTop,
+  index,
+  totalCount,
+  partnerDecision,
+  onSwipe,
+  onSelectDetail,
+  onSimulatePartner,
+}) {
+  const x = useMotionValue(0);
+  const rotate = useTransform(x, [-200, 200], [-18, 18]);
+  const likeBadgeOpacity = useTransform(x, [15, 90], [0, 1]);
+  const passBadgeOpacity = useTransform(x, [-15, -90], [0, 1]);
+  const [exitDirection, setExitDirection] = useState('right');
+
+  const handleDragEnd = (_e, info) => {
+    if (!isTop) return;
+    if (info.offset.x > 80 || info.velocity.x > 300) {
+      setExitDirection('right');
+      onSwipe(recipe, 'yes', 'right');
+    } else if (info.offset.x < -80 || info.velocity.x < -300) {
+      setExitDirection('left');
+      onSwipe(recipe, 'no', 'left');
+    } else {
+      animate(x, 0, { type: 'spring', stiffness: 300, damping: 20 });
+    }
+  };
+
+  return (
+    <motion.div
+      key={recipe.id}
+      style={{
+        zIndex: totalCount - index,
+        x: isTop ? x : 0,
+        rotate: isTop ? rotate : 0,
+      }}
+      drag={isTop ? 'x' : false}
+      dragConstraints={{ left: 0, right: 0 }}
+      dragElastic={0.7}
+      onDragEnd={handleDragEnd}
+      initial={{ scale: 0.9, opacity: 0, y: 20 }}
+      animate={{
+        scale: 1 - index * 0.05,
+        opacity: 1 - index * 0.15,
+        y: index * 12,
+      }}
+      exit={{
+        x: exitDirection === 'right' ? 600 : -600,
+        opacity: 0,
+        rotate: exitDirection === 'right' ? 25 : -25,
+        transition: { duration: 0.22, ease: [0.4, 0, 0.2, 1] },
+      }}
+      className="absolute inset-0 rounded-3xl glass-panel overflow-hidden shadow-2xl border border-slate-700/60 flex flex-col justify-between cursor-grab active:cursor-grabbing select-none"
+    >
+      {/* Top Recipe Image */}
+      <div className="relative h-64 w-full overflow-hidden bg-slate-900">
+        <img
+          src={recipe.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80'}
+          alt={recipe.title}
+          className="w-full h-full object-cover"
+          loading="eager"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
+
+        {/* Top Badges */}
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+          <span className="px-3 py-1 rounded-full bg-slate-950/70 backdrop-blur-md text-amber-400 text-xs font-bold border border-amber-500/30 flex items-center gap-1">
+            <Clock className="w-3.5 h-3.5" />
+            {recipe.prep_time || '20 mins'}
+          </span>
+          
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectDetail(recipe);
+            }}
+            className="p-2 rounded-full bg-slate-950/70 backdrop-blur-md text-white hover:text-rose-400 border border-white/20 pointer-events-auto transition-all"
+          >
+            <Info className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Drag Status Overlay Badges */}
+        {isTop && (
+          <>
+            <motion.div
+              style={{ opacity: likeBadgeOpacity }}
+              className="absolute top-8 left-6 rotate-[-15deg] border-4 border-emerald-400 text-emerald-400 px-4 py-1.5 rounded-2xl font-black text-2xl tracking-wider uppercase bg-emerald-950/80 backdrop-blur-sm pointer-events-none shadow-2xl"
+            >
+              YES! 💚
+            </motion.div>
+            <motion.div
+              style={{ opacity: passBadgeOpacity }}
+              className="absolute top-8 right-6 rotate-[15deg] border-4 border-rose-500 text-rose-500 px-4 py-1.5 rounded-2xl font-black text-2xl tracking-wider uppercase bg-rose-950/80 backdrop-blur-sm pointer-events-none shadow-2xl"
+            >
+              PASS 💔
+            </motion.div>
+          </>
+        )}
+      </div>
+
+      {/* Card Content Footer */}
+      <div className="p-5 flex-1 flex flex-col justify-between space-y-3 bg-slate-900/90">
+        <div>
+          <h3 className="text-xl font-bold text-white tracking-tight leading-snug">
+            {recipe.title}
+          </h3>
+          <p className="text-xs text-slate-400 line-clamp-2 mt-1">
+            {recipe.instructions || 'Delicious homecooked meal recipe ready to prepare.'}
+          </p>
+        </div>
+
+        {/* Tags */}
+        <div className="flex flex-wrap gap-1.5">
+          {recipe.tags?.map((t) => (
+            <span
+              key={t}
+              className="px-2.5 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[11px] font-medium border border-slate-700/60"
+            >
+              #{t}
+            </span>
+          ))}
+        </div>
+
+        {/* Partner status pill */}
+        {isTop && (
+          <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
+            <span className="text-slate-400 flex items-center gap-1.5">
+              <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />
+              Partner status:
+            </span>
+            {partnerDecision === 'yes' ? (
+              <span className="text-emerald-400 font-bold flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Swiped YES!
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSimulatePartner(recipe.id);
+                }}
+                className="text-[11px] text-amber-400 hover:text-amber-300 underline font-medium"
+              >
+                Simulate Partner Swipe
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onNavigateToCookbook }) {
   const [deck, setDeck] = useState([]);
   const [swipedRecipeIds, setSwipedRecipeIds] = useState(new Set());
@@ -35,13 +192,6 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
   useEffect(() => {
     deckRef.current = deck;
   }, [deck]);
-
-  // Motion values for top card
-  const x = useMotionValue(0);
-  const rotate = useTransform(x, [-200, 200], [-18, 18]);
-  const opacity = useTransform(x, [-350, -200, 0, 200, 350], [0.2, 1, 1, 1, 0.2]);
-  const likeBadgeOpacity = useTransform(x, [15, 90], [0, 1]);
-  const passBadgeOpacity = useTransform(x, [-15, -90], [0, 1]);
 
   // Helper for consistent local timezone YYYY-MM-DD string
   const getLocalDateStr = () => {
@@ -71,7 +221,7 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
       checkDateChange();
     }, msUntilMidnight);
 
-    const interval = setInterval(checkDateChange, 60000); // Also check every minute in case tab was sleeping
+    const interval = setInterval(checkDateChange, 60000);
 
     return () => {
       clearTimeout(timer);
@@ -181,60 +331,46 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
 
   const currentTopCard = availableCards[0];
 
-  // Robust Swipe Handler (Supports both Drag & Button Clicks)
-  const handleSwipe = (decision, forcedDirection = null) => {
-    if (!currentTopCard || isAnimatingRef.current) return;
+  // Robust Swipe Handler (Synchronous state commit for flawless AnimatePresence transitions)
+  const handleSwipe = (recipe, decision, direction = 'right') => {
+    if (!recipe || isAnimatingRef.current) return;
     isAnimatingRef.current = true;
 
-    // Determine direction: 'right' for YES (+600px), 'left' for NO (-600px)
-    const dir = forcedDirection || (decision === 'yes' ? 'right' : decision === 'no' ? 'left' : (x.get() >= 0 ? 'right' : 'left'));
-    const targetX = dir === 'right' ? 600 : -600;
-    const recipeId = currentTopCard.id;
+    const recipeId = recipe.id;
 
-    // 1. Animate card smoothly off screen
-    animate(x, targetX, {
-      duration: 0.22,
-      ease: [0.4, 0, 0.2, 1],
+    // 1. Immediately mark recipe as swiped so React & AnimatePresence animate it out
+    setSwipedRecipeIds((prev) => {
+      const next = new Set([...prev, recipeId]);
+      try {
+        const storageKey = `whats_for_dinner_swipes_${user?.id || 'demo'}_${todayStr}`;
+        localStorage.setItem(storageKey, JSON.stringify(Array.from(next)));
+      } catch (e) {}
+      return next;
     });
 
-    // 2. Commit swipe state after animation completes
-    setTimeout(async () => {
-      setSwipedRecipeIds((prev) => {
-        const next = new Set([...prev, recipeId]);
-        try {
-          const storageKey = `whats_for_dinner_swipes_${user?.id || 'demo'}_${todayStr}`;
-          localStorage.setItem(storageKey, JSON.stringify(Array.from(next)));
-        } catch (e) {}
-        return next;
-      });
+    const updatedUserSwipes = { ...userSwipes, [recipeId]: decision };
+    setUserSwipes(updatedUserSwipes);
 
-      const updatedUserSwipes = { ...userSwipes, [recipeId]: decision };
-      setUserSwipes(updatedUserSwipes);
-      
-      // Reset position for next card
-      x.set(0);
+    // 2. Insert/Upsert swipe into Supabase
+    if (isConfigured && profile?.household_id && user?.id) {
+      supabase.from('swipes').upsert({
+        household_id: profile.household_id,
+        recipe_id: recipeId,
+        user_id: user.id,
+        decision,
+        swipe_date: todayStr,
+      }).catch((err) => console.error('Failed to record swipe:', err));
+    }
+
+    // 3. Check for match
+    if (decision === 'yes' && partnerSwipes[recipeId] === 'yes') {
+      triggerMatchOverlay(recipe);
+    }
+
+    // 4. Release animation lock
+    setTimeout(() => {
       isAnimatingRef.current = false;
-
-      // Insert swipe into Supabase if configured
-      if (isConfigured && profile?.household_id && user?.id) {
-        try {
-          await supabase.from('swipes').upsert({
-            household_id: profile.household_id,
-            recipe_id: recipeId,
-            user_id: user.id,
-            decision,
-            swipe_date: todayStr,
-          });
-        } catch (err) {
-          console.error('Failed to record swipe:', err);
-        }
-      }
-
-      // Match Detection check
-      if (decision === 'yes' && partnerSwipes[recipeId] === 'yes') {
-        triggerMatchOverlay(currentTopCard);
-      }
-    }, 220);
+    }, 250);
   };
 
   const triggerMatchOverlay = (recipe) => {
@@ -267,7 +403,6 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
     setSwipedRecipeIds(new Set());
     setUserSwipes({});
     setPartnerSwipes({});
-    x.set(0);
     isAnimatingRef.current = false;
 
     try {
@@ -288,7 +423,6 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
       }
     }
   };
-
 
   const allTags = ['All', ...new Set(deck.flatMap((r) => r.tags || []))].slice(0, 7);
 
@@ -321,135 +455,20 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
           </div>
         ) : availableCards.length > 0 ? (
           <div className="relative w-full h-[460px] flex items-center justify-center">
-            <AnimatePresence>
-              {availableCards.slice(0, 3).map((recipe, index) => {
-                const isTop = index === 0;
-
-                return (
-                  <motion.div
-                    key={recipe.id}
-                    style={{
-                      zIndex: availableCards.length - index,
-                      x: isTop ? x : 0,
-                      rotate: isTop ? rotate : 0,
-                      opacity: isTop ? opacity : 1 - index * 0.15,
-                      scale: 1 - index * 0.05,
-                      y: index * 12,
-                    }}
-                    drag={isTop ? 'x' : false}
-                    onDragEnd={(e, info) => {
-                      if (!isTop) return;
-                      if (info.offset.x > 80 || info.velocity.x > 300) {
-                        handleSwipe('yes', 'right');
-                      } else if (info.offset.x < -80 || info.velocity.x < -300) {
-                        handleSwipe('no', 'left');
-                      } else {
-                        animate(x, 0, { type: 'spring', stiffness: 300, damping: 20 });
-                      }
-                    }}
-                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                    animate={{ scale: 1 - index * 0.05, opacity: 1, y: index * 12 }}
-                    className="absolute inset-0 rounded-3xl glass-panel overflow-hidden shadow-2xl border border-slate-700/60 flex flex-col justify-between cursor-grab active:cursor-grabbing select-none"
-                  >
-                    {/* Top Recipe Image */}
-                    <div className="relative h-64 w-full overflow-hidden bg-slate-900">
-                      <img
-                        src={recipe.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80'}
-                        alt={recipe.title}
-                        className="w-full h-full object-cover"
-                        loading="eager"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/20 to-transparent" />
-
-                      {/* Top Badges */}
-                      <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
-                        <span className="px-3 py-1 rounded-full bg-slate-950/70 backdrop-blur-md text-amber-400 text-xs font-bold border border-amber-500/30 flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          {recipe.prep_time || '20 mins'}
-                        </span>
-                        
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedRecipeDetail(recipe);
-                          }}
-                          className="p-2 rounded-full bg-slate-950/70 backdrop-blur-md text-white hover:text-rose-400 border border-white/20 pointer-events-auto transition-all"
-                        >
-                          <Info className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      {/* Drag Status Overlay Badges */}
-                      {isTop && (
-                        <>
-                          <motion.div
-                            style={{ opacity: likeBadgeOpacity }}
-                            className="absolute top-8 left-6 rotate-[-15deg] border-4 border-emerald-400 text-emerald-400 px-4 py-1.5 rounded-2xl font-black text-2xl tracking-wider uppercase bg-emerald-950/80 backdrop-blur-sm pointer-events-none shadow-2xl"
-                          >
-                            YES! 💚
-                          </motion.div>
-                          <motion.div
-                            style={{ opacity: passBadgeOpacity }}
-                            className="absolute top-8 right-6 rotate-[15deg] border-4 border-rose-500 text-rose-500 px-4 py-1.5 rounded-2xl font-black text-2xl tracking-wider uppercase bg-rose-950/80 backdrop-blur-sm pointer-events-none shadow-2xl"
-                          >
-                            PASS 💔
-                          </motion.div>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Card Content Footer */}
-                    <div className="p-5 flex-1 flex flex-col justify-between space-y-3 bg-slate-900/90">
-                      <div>
-                        <h3 className="text-xl font-bold text-white tracking-tight leading-snug">
-                          {recipe.title}
-                        </h3>
-                        <p className="text-xs text-slate-400 line-clamp-2 mt-1">
-                          {recipe.instructions || 'Delicious homecooked meal recipe ready to prepare.'}
-                        </p>
-                      </div>
-
-                      {/* Tags */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {recipe.tags?.map((t) => (
-                          <span
-                            key={t}
-                            className="px-2.5 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[11px] font-medium border border-slate-700/60"
-                          >
-                            #{t}
-                          </span>
-                        ))}
-                      </div>
-
-                      {/* Simulated Partner Interaction pill */}
-                      {isTop && (
-                        <div className="pt-2 border-t border-slate-800 flex items-center justify-between text-xs">
-                          <span className="text-slate-400 flex items-center gap-1.5">
-                            <Heart className="w-3.5 h-3.5 text-rose-400 fill-rose-400/20" />
-                            Partner status:
-                          </span>
-                          {partnerSwipes[recipe.id] === 'yes' ? (
-                            <span className="text-emerald-400 font-bold flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Swiped YES!
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                simulatePartnerSwipe(recipe.id);
-                              }}
-                              className="text-[11px] text-amber-400 hover:text-amber-300 underline font-medium"
-                            >
-                              Simulate Partner Swipe
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                );
-              })}
+            <AnimatePresence mode="popLayout">
+              {availableCards.slice(0, 3).map((recipe, index) => (
+                <CardItem
+                  key={recipe.id}
+                  recipe={recipe}
+                  isTop={index === 0}
+                  index={index}
+                  totalCount={availableCards.length}
+                  partnerDecision={partnerSwipes[recipe.id]}
+                  onSwipe={handleSwipe}
+                  onSelectDetail={setSelectedRecipeDetail}
+                  onSimulatePartner={simulatePartnerSwipe}
+                />
+              ))}
             </AnimatePresence>
           </div>
         ) : (
@@ -489,7 +508,7 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
         <div className="flex items-center justify-center gap-6 py-3 z-10">
           {/* Pass Button (Swipes LEFT / NO) */}
           <button
-            onClick={() => handleSwipe('no', 'left')}
+            onClick={() => currentTopCard && handleSwipe(currentTopCard, 'no', 'left')}
             className="w-16 h-16 rounded-full bg-slate-900 hover:bg-rose-950/80 text-rose-400 border-2 border-rose-500/30 flex items-center justify-center shadow-lg shadow-rose-950/40 active-press transition-all hover:scale-105"
             title="Pass / No"
           >
@@ -507,7 +526,7 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
 
           {/* Like Button (Swipes RIGHT / YES) */}
           <button
-            onClick={() => handleSwipe('yes', 'right')}
+            onClick={() => currentTopCard && handleSwipe(currentTopCard, 'yes', 'right')}
             className="w-16 h-16 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white shadow-xl shadow-rose-500/30 flex items-center justify-center active-press transition-all hover:scale-105"
             title="Like / Yes"
           >
@@ -568,11 +587,12 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
                   className="w-full py-3 bg-gradient-to-r from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white font-bold rounded-xl text-sm shadow-lg shadow-rose-500/25 flex items-center justify-center gap-2 active-press transition-all"
                 >
                   <Utensils className="w-4 h-4" />
-                  View Recipe Instructions
+                  View Cooking Directions
                 </button>
+
                 <button
                   onClick={() => setMatchedRecipe(null)}
-                  className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs border border-slate-700 transition-all"
+                  className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-xs transition-all"
                 >
                   Keep Swiping
                 </button>
@@ -582,66 +602,54 @@ export default function SwipeDeck({ user, profile, recipes = [], onAddMatch, onN
         )}
       </AnimatePresence>
 
-      {/* RECIPE DETAIL MODAL */}
-      <AnimatePresence>
-        {selectedRecipeDetail && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md"
-            onClick={() => setSelectedRecipeDetail(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md glass-panel rounded-3xl max-h-[85vh] overflow-y-auto border border-slate-700/80 shadow-2xl relative"
-            >
-              <div className="relative h-56 w-full">
-                <img
-                  src={selectedRecipeDetail.image_url}
-                  alt={selectedRecipeDetail.title}
-                  className="w-full h-full object-cover"
-                />
-                <button
-                  onClick={() => setSelectedRecipeDetail(null)}
-                  className="absolute top-3 right-3 p-2 rounded-full bg-slate-950/70 text-white hover:text-rose-400 border border-white/20 transition-all"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+      {/* Recipe Detail Modal */}
+      {selectedRecipeDetail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+          <div className="w-full max-w-md glass-panel p-6 rounded-3xl space-y-4 max-h-[85vh] overflow-y-auto relative">
+            <div className="flex items-start justify-between">
+              <div>
+                <span className="text-xs font-bold text-rose-400 flex items-center gap-1">
+                  <ChefHat className="w-4 h-4" />
+                  Recipe Overview
+                </span>
+                <h3 className="text-xl font-bold text-white mt-1">{selectedRecipeDetail.title}</h3>
               </div>
+              <button
+                type="button"
+                onClick={() => setSelectedRecipeDetail(null)}
+                className="p-1 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              <div className="p-6 space-y-4">
-                <div>
-                  <h3 className="text-2xl font-bold text-white">{selectedRecipeDetail.title}</h3>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-slate-400">
-                    <span className="flex items-center gap-1 text-amber-400 font-semibold">
-                      <Clock className="w-4 h-4" />
-                      {selectedRecipeDetail.prep_time}
-                    </span>
-                    <span className="flex items-center gap-1 text-rose-400 font-semibold">
-                      <ChefHat className="w-4 h-4" />
-                      {selectedRecipeDetail.tags?.join(', ')}
-                    </span>
-                  </div>
-                </div>
+            <img
+              src={selectedRecipeDetail.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80'}
+              alt={selectedRecipeDetail.title}
+              className="w-full h-48 object-cover rounded-2xl"
+            />
 
-                <div className="space-y-2 pt-2 border-t border-slate-800">
-                  <h4 className="font-semibold text-white text-sm flex items-center gap-2">
-                    <Utensils className="w-4 h-4 text-rose-400" />
-                    Instructions & Preparation
-                  </h4>
-                  <div className="text-xs text-slate-300 leading-relaxed whitespace-pre-line bg-slate-900/80 p-4 rounded-2xl border border-slate-800">
-                    {selectedRecipeDetail.instructions || 'No step-by-step instructions available.'}
-                  </div>
-                </div>
+            <div className="flex items-center justify-between text-xs text-slate-400 bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+              <span className="flex items-center gap-1 text-amber-400 font-medium">
+                <Clock className="w-4 h-4" />
+                Prep: {selectedRecipeDetail.prep_time || '20 mins'}
+              </span>
+              <span className="text-slate-300">
+                Tags: {selectedRecipeDetail.tags?.join(', ') || 'General'}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className="font-bold text-white text-xs uppercase tracking-wider text-slate-400">
+                Instructions & Ingredients
+              </h4>
+              <div className="text-xs text-slate-300 whitespace-pre-line bg-slate-900 p-4 rounded-2xl border border-slate-800">
+                {selectedRecipeDetail.instructions || 'No detailed instructions provided for this recipe.'}
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
