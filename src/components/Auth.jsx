@@ -1,34 +1,39 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
-import { Html5Qrcode } from 'html5-qrcode';
-import { supabase, isConfigured, generateInviteCode } from '../lib/supabaseClient';
-import { 
-  Heart, 
-  Sparkles, 
-  Users, 
-  KeyRound, 
-  Copy, 
-  Check, 
-  LogOut, 
-  LogIn, 
-  UserPlus, 
-  UtensilsCrossed, 
+import React, { useState, useEffect, useRef } from "react";
+import { QRCodeSVG } from "qrcode.react";
+import { Html5Qrcode } from "html5-qrcode";
+import {
+  supabase,
+  isConfigured,
+  generateInviteCode,
+} from "../lib/supabaseClient";
+import {
+  Sparkles,
+  Check,
+  LogOut,
+  LogIn,
+  UserPlus,
+  UtensilsCrossed,
   ArrowRight,
-  ShieldCheck,
   AlertCircle,
   QrCode,
   Camera,
   X,
   ScanLine,
-  UserCheck
-} from 'lucide-react';
+  UserCheck,
+} from "lucide-react";
 
-export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCloseProfile }) {
+export default function Auth({
+  user,
+  profile,
+  onProfileUpdate,
+  onDemoLogin,
+  onCloseProfile,
+}) {
   const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [inviteCodeInput, setInviteCodeInput] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [inviteCodeInput, setInviteCodeInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
@@ -54,13 +59,13 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
     // Wait for DOM element render
     setTimeout(async () => {
       try {
-        if (!document.getElementById('qr-reader')) return;
-        
-        const html5Qrcode = new Html5Qrcode('qr-reader');
+        if (!document.getElementById("qr-reader")) return;
+
+        const html5Qrcode = new Html5Qrcode("qr-reader");
         html5QrcodeScannerRef.current = html5Qrcode;
 
         await html5Qrcode.start(
-          { facingMode: 'environment' },
+          { facingMode: "environment" },
           { fps: 10, qrbox: { width: 220, height: 220 } },
           (decodedText) => {
             handleScanSuccess(decodedText);
@@ -69,11 +74,13 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
           },
           (errorMessage) => {
             // Ignore frame parse errors
-          }
+          },
         );
       } catch (err) {
-        console.error('Camera QR error:', err);
-        setCameraError('Camera access unavailable or blocked. Use manual code below or test with instant simulate button.');
+        console.error("Camera QR error:", err);
+        setCameraError(
+          "Camera access unavailable or blocked. Use manual code below or test with instant simulate button.",
+        );
       }
     }, 300);
   };
@@ -90,8 +97,8 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
   // Process decoded QR payload
   const handleScanSuccess = async (rawCode) => {
     let cleanCode = rawCode.trim();
-    if (cleanCode.includes('DINNER_HOUSEHOLD:')) {
-      cleanCode = cleanCode.replace('DINNER_HOUSEHOLD:', '');
+    if (cleanCode.includes("DINNER_HOUSEHOLD:")) {
+      cleanCode = cleanCode.replace("DINNER_HOUSEHOLD:", "");
     }
     setInviteCodeInput(cleanCode);
     await processJoinHousehold(cleanCode);
@@ -106,7 +113,7 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
 
     try {
       if (!isConfigured) {
-        onDemoLogin(email || 'demo@couples.app', displayName || 'Partner 1');
+        onDemoLogin(email || "demo@couples.app", displayName || "Partner 1");
         setLoading(false);
         return;
       }
@@ -116,11 +123,13 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
           email,
           password,
           options: {
-            data: { display_name: displayName || email.split('@')[0] }
-          }
+            data: { display_name: displayName || email.split("@")[0] },
+          },
         });
         if (error) throw error;
-        setSuccessMsg('Account created successfully! Welcome to What\'s For Dinner.');
+        setSuccessMsg(
+          "Account created successfully! Welcome to What's For Dinner.",
+        );
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
           email,
@@ -129,7 +138,7 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
         if (error) throw error;
       }
     } catch (err) {
-      setErrorMsg(err.message || 'An error occurred during authentication.');
+      setErrorMsg(err.message || "An error occurred during authentication.");
     } finally {
       setLoading(false);
     }
@@ -144,9 +153,9 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
       if (!isConfigured) {
         onProfileUpdate({
           ...profile,
-          household_id: 'demo-household-123',
+          household_id: "demo-household-123",
           invite_code: code,
-          partner_name: 'Partner (Simulated)'
+          partner_name: "Partner (Simulated)",
         });
         setSuccessMsg(`Household created! QR Code generated.`);
         setLoading(false);
@@ -154,7 +163,7 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
       }
 
       const { data: household, error: hErr } = await supabase
-        .from('households')
+        .from("households")
         .insert([{ invite_code: code }])
         .select()
         .single();
@@ -162,21 +171,21 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
       if (hErr) throw hErr;
 
       const { error: pErr } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({ household_id: household.id })
-        .eq('id', user.id);
+        .eq("id", user.id);
 
       if (pErr) throw pErr;
 
       onProfileUpdate({
         ...profile,
         household_id: household.id,
-        invite_code: code
+        invite_code: code,
       });
 
       setSuccessMsg(`Household created! Partner can now scan your QR code.`);
     } catch (err) {
-      setErrorMsg(err.message || 'Failed to create household.');
+      setErrorMsg(err.message || "Failed to create household.");
     } finally {
       setLoading(false);
     }
@@ -193,9 +202,9 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
       if (!isConfigured) {
         onProfileUpdate({
           ...profile,
-          household_id: 'demo-household-123',
+          household_id: "demo-household-123",
           invite_code: formattedCode,
-          partner_name: 'Alex (Partner Connected)'
+          partner_name: "Alex (Partner Connected)",
         });
         setSuccessMsg(`Successfully linked accounts via QR Code! 🎉`);
         setLoading(false);
@@ -203,19 +212,21 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
       }
 
       const { data: household, error: hErr } = await supabase
-        .from('households')
-        .select('id, invite_code')
-        .eq('invite_code', formattedCode)
+        .from("households")
+        .select("id, invite_code")
+        .eq("invite_code", formattedCode)
         .single();
 
       if (hErr || !household) {
-        throw new Error('Household QR code not found. Please re-scan partner\'s code.');
+        throw new Error(
+          "Household QR code not found. Please re-scan partner's code.",
+        );
       }
 
       const { error: pErr } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update({ household_id: household.id })
-        .eq('id', user.id);
+        .eq("id", user.id);
 
       if (pErr) throw pErr;
 
@@ -223,12 +234,12 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
         ...profile,
         household_id: household.id,
         invite_code: household.invite_code,
-        partner_name: 'Partner Connected'
+        partner_name: "Partner Connected",
       });
 
-      setSuccessMsg('Successfully linked accounts via QR Code! 🎉');
+      setSuccessMsg("Successfully linked accounts via QR Code! 🎉");
     } catch (err) {
-      setErrorMsg(err.message || 'Could not join household.');
+      setErrorMsg(err.message || "Could not join household.");
     } finally {
       setLoading(false);
     }
@@ -251,7 +262,7 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
   // Invite code payload string for QR Code
   const qrValue = profile?.invite_code
     ? `DINNER_HOUSEHOLD:${profile.invite_code}`
-    : 'DINNER_HOUSEHOLD:DIN-9X2Y';
+    : "DINNER_HOUSEHOLD:DIN-9X2Y";
 
   // -------------------------------------------------------------
   // VIEW 1: NOT LOGGED IN
@@ -277,8 +288,11 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
             <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
               <div>
-                <span className="font-semibold block text-amber-200 mb-0.5">Demo Mode Active</span>
-                Try instant demo mode below to experience QR scanning and full swiping!
+                <span className="font-semibold block text-amber-200 mb-0.5">
+                  Demo Mode Active
+                </span>
+                Try instant demo mode below to experience QR scanning and full
+                swiping!
               </div>
             </div>
           )}
@@ -290,9 +304,9 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
                 type="button"
                 onClick={() => setIsSignUp(false)}
                 className={`flex-1 py-2.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
-                  !isSignUp 
-                    ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20' 
-                    : 'text-slate-400 hover:text-slate-200'
+                  !isSignUp
+                    ? "bg-rose-500 text-white shadow-md shadow-rose-500/20"
+                    : "text-slate-400 hover:text-slate-200"
                 }`}
               >
                 <LogIn className="w-3.5 h-3.5" />
@@ -302,9 +316,9 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
                 type="button"
                 onClick={() => setIsSignUp(true)}
                 className={`flex-1 py-2.5 text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 ${
-                  isSignUp 
-                    ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20' 
-                    : 'text-slate-400 hover:text-slate-200'
+                  isSignUp
+                    ? "bg-rose-500 text-white shadow-md shadow-rose-500/20"
+                    : "text-slate-400 hover:text-slate-200"
                 }`}
               >
                 <UserPlus className="w-3.5 h-3.5" />
@@ -329,7 +343,9 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
             <form onSubmit={handleAuth} className="space-y-4">
               {isSignUp && (
                 <div>
-                  <label className="block text-xs font-medium text-slate-300 mb-1">Your Name</label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1">
+                    Your Name
+                  </label>
                   <input
                     type="text"
                     required
@@ -342,7 +358,9 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
               )}
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Email Address</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Email Address
+                </label>
                 <input
                   type="email"
                   required
@@ -354,7 +372,9 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-300 mb-1">Password</label>
+                <label className="block text-xs font-medium text-slate-300 mb-1">
+                  Password
+                </label>
                 <input
                   type="password"
                   required
@@ -374,7 +394,7 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
                   <span className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
                 ) : (
                   <>
-                    {isSignUp ? 'Create Account' : 'Sign In to Swipe'}
+                    {isSignUp ? "Create Account" : "Sign In to Swipe"}
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -384,7 +404,7 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
             <div className="mt-5 pt-4 border-t border-slate-800/80 text-center">
               <button
                 type="button"
-                onClick={() => onDemoLogin('couple@demo.app', 'Partner 1')}
+                onClick={() => onDemoLogin("couple@demo.app", "Partner 1")}
                 className="w-full py-2.5 px-4 bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-medium border border-slate-700/60 flex items-center justify-center gap-2 transition-all"
               >
                 <Sparkles className="w-4 h-4 text-amber-400" />
@@ -408,9 +428,12 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 mb-1">
               <QrCode className="w-7 h-7" />
             </div>
-            <h2 className="text-2xl font-bold text-white">Link Account with Partner</h2>
+            <h2 className="text-2xl font-bold text-white">
+              Link Account with Partner
+            </h2>
             <p className="text-sm text-slate-400">
-              Scan your partner's QR code or generate a household to link accounts.
+              Scan your partner's QR code or generate a household to link
+              accounts.
             </p>
           </div>
 
@@ -428,8 +451,12 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
                 <Camera className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-semibold text-white text-sm">Option A: Scan Partner's QR Code</h3>
-                <p className="text-xs text-slate-400">Point camera at your partner's Household QR code.</p>
+                <h3 className="font-semibold text-white text-sm">
+                  Option A: Scan Partner's QR Code
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Point camera at your partner's Household QR code.
+                </p>
               </div>
             </div>
 
@@ -444,8 +471,12 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
           </div>
 
           <div className="relative text-center">
-            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-800"></div></div>
-            <span className="relative px-3 bg-slate-950 text-xs font-semibold uppercase tracking-wider text-slate-500">OR</span>
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-800"></div>
+            </div>
+            <span className="relative px-3 bg-slate-950 text-xs font-semibold uppercase tracking-wider text-slate-500">
+              OR
+            </span>
           </div>
 
           {/* Option B: Create Household & Show QR Code */}
@@ -455,8 +486,12 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
                 <Sparkles className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="font-semibold text-white text-sm">Option B: Create New Household</h3>
-                <p className="text-xs text-slate-400">Generates your QR Code for your partner to scan.</p>
+                <h3 className="font-semibold text-white text-sm">
+                  Option B: Create New Household
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Generates your QR Code for your partner to scan.
+                </p>
               </div>
             </div>
 
@@ -486,7 +521,9 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
                   <Camera className="w-5 h-5 text-rose-400" />
                   Scan Household QR Code
                 </h3>
-                <p className="text-xs text-slate-400">Align partner's QR code inside camera box</p>
+                <p className="text-xs text-slate-400">
+                  Align partner's QR code inside camera box
+                </p>
               </div>
 
               {/* Camera Reader Element */}
@@ -502,7 +539,7 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
 
               {/* Instant Simulate QR Scan Button */}
               <button
-                onClick={() => handleScanSuccess('DINNER_HOUSEHOLD:DIN-9X2Y')}
+                onClick={() => handleScanSuccess("DINNER_HOUSEHOLD:DIN-9X2Y")}
                 className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2"
               >
                 <Sparkles className="w-4 h-4" />
@@ -529,7 +566,9 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
           >
             ← Back to Swiping
           </button>
-          <span className="text-xs font-bold text-white">Profile & Household</span>
+          <span className="text-xs font-bold text-white">
+            Profile & Household
+          </span>
         </div>
       )}
 
@@ -541,7 +580,9 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
               {(profile.display_name || user.email)[0].toUpperCase()}
             </div>
             <div>
-              <h2 className="font-bold text-white text-lg">{profile.display_name || user.email}</h2>
+              <h2 className="font-bold text-white text-lg">
+                {profile.display_name || user.email}
+              </h2>
               <p className="text-xs text-slate-400">{user.email}</p>
               <div className="inline-flex items-center gap-1 mt-1 text-[11px] text-emerald-400 font-semibold">
                 <UserCheck className="w-3.5 h-3.5" />
@@ -581,10 +622,11 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
 
         <div>
           <p className="text-xs text-slate-300 font-medium">
-            Have your partner scan this QR code from their device to link accounts!
+            Have your partner scan this QR code from their device to link
+            accounts!
           </p>
           <span className="font-mono text-sm font-bold tracking-widest text-amber-400 block mt-1">
-            {profile.invite_code || 'DIN-9X2Y'}
+            {profile.invite_code || "DIN-9X2Y"}
           </span>
         </div>
 
@@ -614,7 +656,9 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
                 <Camera className="w-5 h-5 text-rose-400" />
                 Scan Household QR Code
               </h3>
-              <p className="text-xs text-slate-400">Align partner's QR code inside camera box</p>
+              <p className="text-xs text-slate-400">
+                Align partner's QR code inside camera box
+              </p>
             </div>
 
             <div className="relative w-full h-64 bg-slate-900 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center">
@@ -628,7 +672,7 @@ export default function Auth({ user, profile, onProfileUpdate, onDemoLogin, onCl
             )}
 
             <button
-              onClick={() => handleScanSuccess('DINNER_HOUSEHOLD:DIN-9X2Y')}
+              onClick={() => handleScanSuccess("DINNER_HOUSEHOLD:DIN-9X2Y")}
               className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
