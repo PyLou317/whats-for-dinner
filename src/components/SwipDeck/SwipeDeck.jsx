@@ -12,7 +12,7 @@ import PassBtn from "./Buttons/PassBtn";
 import EmptyDeckState from "./EmptyDeckState";
 import CardItem from "./CardItem";
 import TopFilterBar from "./TopFilterBar";
-import LoadingState from "../../Utils/LoadingState"
+import LoadingState from "../../Utils/LoadingState";
 
 import getLocalDateStr from "../../Utils/getLocalDateStr";
 
