@@ -1,3 +1,6 @@
+import { motion } from 'framer-motion';
+import { Sparkles, Clock, Utensils } from 'lucide-react';
+
 export default function ItsAMatchOverlay({
   matchedRecipe,
   setMatchedRecipe,
@@ -29,7 +32,7 @@ export default function ItsAMatchOverlay({
           <img
             src={
               matchedRecipe.image_url ||
-              "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"
+              'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80'
             }
             alt={matchedRecipe.title}
             className="w-full h-44 object-cover rounded-xl"
@@ -41,7 +44,7 @@ export default function ItsAMatchOverlay({
             <div className="flex items-center justify-between text-xs text-slate-400">
               <span className="flex items-center gap-1 text-amber-400 font-semibold">
                 <Clock className="w-3.5 h-3.5" />
-                {matchedRecipe.prep_time || "25 mins"}
+                {matchedRecipe.prep_time || '25 mins'}
               </span>
               <span className="text-emerald-400 font-semibold">
                 Ready to Cook

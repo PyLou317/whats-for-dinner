@@ -1,3 +1,5 @@
+import { BookOpen, RotateCcw, Sparkles } from 'lucide-react';
+
 export default function EmptyDeckState({
   onNavigateToCookbook,
   handleResetSwipes,
