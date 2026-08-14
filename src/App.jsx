@@ -1,23 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import {
   supabase,
   isConfigured,
   INITIAL_RECIPE_PRESETS,
   ensureHouseholdRecipes,
   fetchHouseholdMatches,
-} from './lib/supabaseClient';
-import Auth from './components/Auth';
-import SwipeDeck from './components/SwipeDeck';
-import RecipeManager from './components/RecipeManager/RecipeManager.jsx';
-import MatchHistory from './components/MatchHistory';
-import Navbar from './components/Navbar';
+} from "./lib/supabaseClient";
+import Auth from "./components/Auth";
+import SwipeDeck from "./components/SwipDeck/SwipeDeck";
+import RecipeManager from "./components/RecipeManager/RecipeManager.jsx";
+import MatchHistory from "./components/MatchHistory";
+import Navbar from "./components/Navbar";
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [recipes, setRecipes] = useState(INITIAL_RECIPE_PRESETS);
   const [matches, setMatches] = useState([]);
-  const [activeTab, setActiveTab] = useState('swipe');
+  const [activeTab, setActiveTab] = useState("swipe");
   const [loadingAuth, setLoadingAuth] = useState(true);
 
   // Listen for Supabase Auth changes
@@ -55,9 +55,9 @@ export default function App() {
   const fetchUserProfile = async (userId) => {
     try {
       const { data: prof, error } = await supabase
-        .from('profiles')
-        .select('*, households(invite_code)')
-        .eq('id', userId)
+        .from("profiles")
+        .select("*, households(invite_code)")
+        .eq("id", userId)
         .single();
 
       if (prof) {
@@ -67,33 +67,37 @@ export default function App() {
         });
 
         if (prof.household_id) {
-          const householdRecipes = await ensureHouseholdRecipes(prof.household_id, userId);
+          const householdRecipes = await ensureHouseholdRecipes(
+            prof.household_id,
+            userId,
+          );
           setRecipes(householdRecipes);
 
-          const existingMatches = await fetchHouseholdMatches(prof.household_id);
+          const existingMatches = await fetchHouseholdMatches(
+            prof.household_id,
+          );
           setMatches(existingMatches);
         }
       }
     } catch (err) {
-      console.error('Error fetching user profile:', err);
+      console.error("Error fetching user profile:", err);
     } finally {
       setLoadingAuth(false);
     }
   };
 
-
-  const handleDemoLogin = (email = 'couple@demo.app', name = 'Partner 1') => {
+  const handleDemoLogin = (email = "couple@demo.app", name = "Partner 1") => {
     const demoUser = {
-      id: 'demo-user-1',
+      id: "demo-user-1",
       email: email,
     };
     const demoProfile = {
-      id: 'demo-user-1',
+      id: "demo-user-1",
       email: email,
       display_name: name,
-      household_id: 'demo-household-123',
-      invite_code: 'DIN-9X2Y',
-      partner_name: 'Alex (Partner)',
+      household_id: "demo-household-123",
+      invite_code: "DIN-9X2Y",
+      partner_name: "Alex (Partner)",
     };
     setUser(demoUser);
     setProfile(demoProfile);
@@ -145,22 +149,22 @@ export default function App() {
         user={user}
         profile={profile}
         matchCount={matches.length}
-        onOpenProfile={() => setActiveTab('profile')}
+        onOpenProfile={() => setActiveTab("profile")}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col">
-        {activeTab === 'swipe' && (
+        {activeTab === "swipe" && (
           <SwipeDeck
             user={user}
             profile={profile}
             recipes={recipes}
             onAddMatch={handleAddMatch}
-            onNavigateToCookbook={() => setActiveTab('cookbook')}
+            onNavigateToCookbook={() => setActiveTab("cookbook")}
           />
         )}
 
-        {activeTab === 'cookbook' && (
+        {activeTab === "cookbook" && (
           <RecipeManager
             user={user}
             profile={profile}
@@ -169,20 +173,20 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'matches' && (
+        {activeTab === "matches" && (
           <MatchHistory
             matches={matches}
-            onSelectRecipe={() => setActiveTab('swipe')}
+            onSelectRecipe={() => setActiveTab("swipe")}
           />
         )}
 
-        {activeTab === 'profile' && (
+        {activeTab === "profile" && (
           <Auth
             user={user}
             profile={profile}
             onProfileUpdate={(updatedProf) => setProfile(updatedProf)}
             onDemoLogin={handleDemoLogin}
-            onCloseProfile={() => setActiveTab('swipe')}
+            onCloseProfile={() => setActiveTab("swipe")}
           />
         )}
       </main>
