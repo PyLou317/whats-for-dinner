@@ -1,24 +1,15 @@
-import { Heart } from "lucide-react";
+import { Undo2 } from 'lucide-react';
 
-export default function ResetUndoBtn({
-  swipeTopCardRef,
-  handleSwipe,
-  currentTopCard,
-}) {
+export default function ResetUndoBtn({ onReset }) {
   return (
     <button
       type="button"
-      onClick={() => {
-        if (swipeTopCardRef.current) {
-          swipeTopCardRef.current("yes", "right");
-        } else if (currentTopCard) {
-          handleSwipe(currentTopCard, "yes", "right");
-        }
-      }}
-      className="w-16 h-16 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 hover:from-rose-600 hover:to-amber-600 text-white shadow-xl shadow-rose-500/30 flex items-center justify-center active-press transition-all hover:scale-105"
-      title="Like / Yes"
+      onClick={onReset}
+      className="w-16 h-16 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 shadow-lg shadow-slate-900/30 flex items-center justify-center active-press transition-all hover:scale-105"
+      title="Undo last swipe"
+      aria-label="Undo last swipe"
     >
-      <Heart className="w-8 h-8 fill-white" />
+      <Undo2 className="w-7 h-7" />
     </button>
   );
 }
