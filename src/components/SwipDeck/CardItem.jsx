@@ -37,7 +37,6 @@ export default function CardItem({
       stiffness: 220,
       damping: 22,
       mass: 0.8,
-      duration: 0.35,
     });
 
     onSwipe?.(recipe, decision, direction);
@@ -128,7 +127,16 @@ export default function CardItem({
 
         {/* Drag Status Overlay Badges */}
         {isTop && (
-          <>
+          <motion.div
+            drag
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.18}
+            style={{ x, rotate, opacity, zIndex: totalCount - index }}
+            onDragStart={() => setIsDragging(true)}
+            onDragEnd={handleDragEnd}
+            whileTap={{ scale: 0.98 }}
+            className="absolute inset-0 rounded-[2rem] border border-white/10 shadow-2xl"
+          >
             <motion.div
               style={{ opacity: likeBadgeOpacity }}
               className="absolute top-8 left-6 rotate-[-15deg] border-4 border-emerald-400 text-emerald-400 px-4 py-1.5 rounded-2xl font-black text-2xl tracking-wider uppercase bg-emerald-950/80 backdrop-blur-sm pointer-events-none shadow-2xl"
@@ -137,11 +145,11 @@ export default function CardItem({
             </motion.div>
             <motion.div
               style={{ opacity: passBadgeOpacity }}
-              className="absolute top-8 right-6 rotate-[15deg] border-4 border-rose-500 text-rose-500 px-4 py-1.5 rounded-2xl font-black text-2xl tracking-wider uppercase bg-rose-950/80 backdrop-blur-sm pointer-events-none shadow-2xl"
+              className="absolute top-8 right-6 rotate-15 border-4 border-rose-500 text-rose-500 px-4 py-1.5 rounded-2xl font-black text-2xl tracking-wider uppercase bg-rose-950/80 backdrop-blur-sm pointer-events-none shadow-2xl"
             >
               PASS 💔
             </motion.div>
-          </>
+          </motion.div>
         )}
       </div>
 
