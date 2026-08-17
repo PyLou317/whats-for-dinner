@@ -1,3 +1,5 @@
+import { Utensils } from 'lucide-react';
+
 export default function EmptyState() {
   return (
     <div className="glass-panel p-8 rounded-3xl text-center space-y-4 my-auto">
