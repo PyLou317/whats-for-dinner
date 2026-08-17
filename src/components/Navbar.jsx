@@ -1,23 +1,33 @@
 import React from 'react';
-import { 
-  Flame, 
-  BookOpen, 
-  Sparkles, 
-  UtensilsCrossed, 
+import {
+  Flame,
+  BookOpen,
+  Sparkles,
+  UtensilsCrossed,
   Heart,
   Users,
-  QrCode
+  QrCode,
+  Utensils,
 } from 'lucide-react';
 
-export default function Navbar({ activeTab, setActiveTab, user, profile, matchCount = 0, onOpenProfile }) {
-  const avatarLetter = (profile?.display_name || user?.email || 'U')[0].toUpperCase();
+export default function Navbar({
+  activeTab,
+  setActiveTab,
+  user,
+  profile,
+  matchCount = 0,
+  onOpenProfile,
+}) {
+  const avatarLetter = (profile?.display_name ||
+    user?.email ||
+    'U')[0].toUpperCase();
 
   return (
     <>
       {/* Mobile Top Header Banner */}
       <header className="sticky top-0 z-30 w-full glass-panel border-b border-slate-800/80 px-4 py-2.5 flex items-center justify-between">
         {/* Left: Brand */}
-        <div 
+        <div
           onClick={() => setActiveTab('swipe')}
           className="flex items-center gap-2 cursor-pointer group"
         >
@@ -29,8 +39,8 @@ export default function Navbar({ activeTab, setActiveTab, user, profile, matchCo
               What's For <span className="gradient-text-rose">Dinner?</span>
             </h1>
             <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-              <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500 inline" />
-              Couple Swiper
+              <Utensils className="w-2.5 h-2.5 text-rose-500 fill-rose-500 inline" />
+              Meal Swiper
             </span>
           </div>
         </div>
@@ -57,13 +67,19 @@ export default function Navbar({ activeTab, setActiveTab, user, profile, matchCo
           >
             <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-rose-500 to-amber-500 text-white font-black text-sm flex items-center justify-center shadow-md shadow-rose-500/20 overflow-hidden border border-white/20">
               {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                <img
+                  src={profile.avatar_url}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 avatarLetter
               )}
             </div>
             {/* Status Dot */}
-            <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-slate-950 ${profile?.household_id ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+            <span
+              className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-slate-950 ${profile?.household_id ? 'bg-emerald-400' : 'bg-amber-400'}`}
+            />
           </button>
         </div>
       </header>
