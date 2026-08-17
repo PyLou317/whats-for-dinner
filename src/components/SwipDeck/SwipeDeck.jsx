@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
-import { supabase, isConfigured } from '../../lib/supabaseClient';
+import {
+  supabase,
+  isConfigured,
+  fetchHouseholdMatches,
+} from '../../lib/supabaseClient';
 import fetchTodaySwipesAndRecipes from '../../API/fetchTodaySwipesAndRecipes';
 
 import RecipeDetailModal from './RecipeDetailModal';
@@ -95,6 +99,8 @@ export default function SwipeDeck({
     });
   }, [recipes, profile?.household_id, todayStr]);
 
+  console.log();
+
   // 3. Set up Supabase Realtime Subscription for swipes in current household
   useEffect(() => {
     if (!isConfigured || !profile?.household_id) return;
@@ -147,11 +153,15 @@ export default function SwipeDeck({
   const currentTopCard = availableCards[0];
 
   // Robust Swipe Handler
-  const handleSwipe = (recipe, decision, direction = 'right') => {
+  const handleSwipe = async (recipe, decision) => {
     if (!recipe) return;
     const recipeId = recipe.id;
 
-    lastSwipedRef.current = { recipeId, decision, direction };
+    lastSwipedRef.current = {
+      recipeId,
+      decision,
+      direction: decision === 'yes' ? 'right' : 'left',
+    };
 
     setSwipedRecipeIds((prev) => {
       const next = new Set(prev);
@@ -167,25 +177,43 @@ export default function SwipeDeck({
 
     setUserSwipes((prev) => ({ ...prev, [recipeId]: decision }));
 
-    if (isConfigured && profile?.household_id && user?.id) {
-      supabase
-        .from('swipes')
-        .upsert(
+    // IMPORTANT: use local-day todayStr from state (no UTC recompute here)
+    const swipeDate = todayStr;
+
+    if (isConfigured && user?.id && profile?.household_id && recipe?.id) {
+      const { error } = await supabase.from('swipes').upsert(
+        [
           {
             household_id: profile.household_id,
-            recipe_id: recipeId,
             user_id: user.id,
+            recipe_id: recipe.id,
             decision,
-            swipe_date: todayStr,
+            swipe_date: swipeDate,
           },
-          { onConflict: 'user_id,recipe_id,swipe_date' },
-        )
-        .then(({ error }) => {
-          if (error) console.error('Supabase swipe error:', error);
-        })
-        .catch((err) => console.error('Failed to record swipe:', err));
+        ],
+        { onConflict: 'user_id,recipe_id,swipe_date' },
+      );
+
+      if (error) {
+        console.error('Error saving swipe:', error);
+        return;
+      }
+
+      // Source-of-truth match check (reliable even if partnerSwipes state is stale)
+      if (decision === 'yes') {
+        const dbMatches = await fetchHouseholdMatches(
+          profile.household_id,
+          swipeDate,
+        );
+        const isNowMatched = dbMatches.some((m) => m.id === recipe.id);
+        if (isNowMatched) {
+          triggerMatchOverlay(recipe);
+          return;
+        }
+      }
     }
 
+    // Fast local fallback
     if (decision === 'yes' && partnerSwipes[recipeId] === 'yes') {
       triggerMatchOverlay(recipe);
     }
@@ -207,7 +235,7 @@ export default function SwipeDeck({
     }
   };
 
-  const handleResetSwipes = async () => {
+  const handleUndoLastSwipe = async () => {
     const lastSwipe = lastSwipedRef.current;
     if (!lastSwipe) return;
 
@@ -248,6 +276,44 @@ export default function SwipeDeck({
     lastSwipedRef.current = null;
   };
 
+  const handleResetAllSwipes = async () => {
+    const confirmed = window.confirm(
+      "Reset all of today's swipes? This cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    // clear local cache
+    try {
+      const storageKey = `whats_for_dinner_swipes_${user?.id || 'demo'}_${todayStr}`;
+      localStorage.removeItem(storageKey);
+    } catch (e) {}
+
+    // clear DB rows for this user + today
+    if (isConfigured && profile?.household_id && user?.id) {
+      try {
+        const { error } = await supabase
+          .from('swipes')
+          .delete()
+          .eq('household_id', profile.household_id)
+          .eq('user_id', user.id)
+          .eq('swipe_date', todayStr);
+
+        if (error) {
+          console.error('Failed to reset all swipes:', error);
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to reset all swipes:', err);
+        return;
+      }
+    }
+
+    // clear in-memory state
+    setSwipedRecipeIds(new Set());
+    setUserSwipes({});
+    lastSwipedRef.current = null;
+  };
+
   const allTags = ['All', ...new Set(deck.flatMap((r) => r.tags || []))].slice(
     0,
     7,
@@ -263,11 +329,11 @@ export default function SwipeDeck({
       />
 
       {/* Main Card Stack Container */}
-      <div className="flex-1 flex items-center justify-center relative my-2 min-h-[460px]">
+      <div className="flex-1 flex items-center justify-center relative my-2 min-h-115">
         {loading ? (
           <LoadingState text="Loading today's meal stack..." />
         ) : availableCards.length > 0 ? (
-          <div className="relative w-full h-[460px] flex items-center justify-center">
+          <div className="relative w-full h-115 flex items-center justify-center">
             <AnimatePresence>
               {availableCards.slice(0, 3).map((recipe, index) => (
                 <CardItem
@@ -290,7 +356,7 @@ export default function SwipeDeck({
           /* Empty Deck State */
           <EmptyDeckState
             onNavigateToCookbook={onNavigateToCookbook}
-            handleResetSwipes={handleResetSwipes}
+            handleResetSwipes={handleResetAllSwipes}
           />
         )}
       </div>
@@ -306,7 +372,7 @@ export default function SwipeDeck({
           />
 
           {/* Reset / Undo */}
-          <ResetUndoBtn onReset={handleResetSwipes} />
+          <ResetUndoBtn onReset={handleUndoLastSwipe} />
 
           {/* Like Button (Swipes RIGHT / YES) */}
           <LikeBtn
