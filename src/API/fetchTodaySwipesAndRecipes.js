@@ -2,7 +2,8 @@ import {
   supabase,
   ensureHouseholdRecipes,
   INITIAL_RECIPE_PRESETS,
-} from "../lib/supabaseClient";
+  fetchHouseholdMatches,
+} from '../lib/supabaseClient';
 
 const fetchTodaySwipesAndRecipes = async ({
   setDeck,
@@ -10,6 +11,7 @@ const fetchTodaySwipesAndRecipes = async ({
   setUserSwipes,
   setPartnerSwipes,
   setLoading,
+  onMatchesLoaded, // optional callback
   user,
   profile,
   recipes,
@@ -22,7 +24,7 @@ const fetchTodaySwipesAndRecipes = async ({
   let mySwipesObj = {};
   let partnerSwipesObj = {};
 
-  const storageKey = `whats_for_dinner_swipes_${user?.id || "demo"}_${todayStr}`;
+  const storageKey = `whats_for_dinner_swipes_${user?.id || 'demo'}_${todayStr}`;
   try {
     const saved = localStorage.getItem(storageKey);
     if (saved) {
@@ -35,10 +37,10 @@ const fetchTodaySwipesAndRecipes = async ({
       allRecipes = await ensureHouseholdRecipes(profile.household_id, user?.id);
 
       const { data: dbSwipes } = await supabase
-        .from("swipes")
-        .select("*")
-        .eq("household_id", profile.household_id)
-        .eq("swipe_date", todayStr);
+        .from('swipes')
+        .select('*')
+        .eq('household_id', profile.household_id)
+        .eq('swipe_date', todayStr);
 
       if (dbSwipes) {
         dbSwipes.forEach((s) => {
@@ -50,8 +52,16 @@ const fetchTodaySwipesAndRecipes = async ({
           }
         });
       }
+
+      if (onMatchesLoaded) {
+        const matches = await fetchHouseholdMatches(
+          profile.household_id,
+          todayStr,
+        );
+        onMatchesLoaded(matches);
+      }
     } catch (err) {
-      console.error("Error fetching swipes:", err);
+      console.error('Error fetching swipes:', err);
     }
   }
 
