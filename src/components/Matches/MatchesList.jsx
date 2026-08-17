@@ -1,6 +1,12 @@
-import { CheckCircle2, Heart, Clock } from 'lucide-react';
+import { CheckCircle2, Heart, Clock, Undo2 } from 'lucide-react';
 
-export default function MatchesList({ matches, onSelectMatch }) {
+export default function MatchesList({ matches, onSelectMatch, onUndoMatch }) {
+  const handleUndo = (e, item, idx) => {
+    e.stopPropagation();
+    if (!onUndoMatch) return;
+    onUndoMatch(item.id ?? idx, item); // id first, item second
+  };
+
   return (
     <div className="space-y-3">
       {matches.map((item, idx) => (
@@ -9,6 +15,17 @@ export default function MatchesList({ matches, onSelectMatch }) {
           className="glass-panel-interactive p-4 rounded-3xl flex items-center gap-4 relative overflow-hidden group cursor-pointer"
           onClick={() => onSelectMatch(item)}
         >
+          <button
+            type="button"
+            onClick={(e) => handleUndo(e, item, idx)}
+            className="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-slate-900/70 text-slate-200 border border-slate-700 hover:bg-slate-800 transition text-[11px] font-semibold"
+            aria-label={`Undo match for ${item.title}`}
+            title="Undo match"
+          >
+            <Undo2 className="w-3.5 h-3.5" />
+            Undo
+          </button>
+
           <div className="relative w-20 h-20 shrink-0">
             <img
               src={
