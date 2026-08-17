@@ -20,11 +20,10 @@ export default function PassBtn({
     <button
       type="button"
       onClick={onPass}
-      className="w-16 h-16 rounded-full bg-slate-900 hover:bg-rose-950/80 text-rose-400 border-2 border-rose-500/30 flex items-center justify-center shadow-lg shadow-rose-950/40 active-press transition-all hover:scale-105"
-      title="Pass / No"
       aria-label="Pass"
+      className="w-16 h-16 rounded-full bg-slate-800 hover:bg-rose-950/80 text-rose-400 border-2 border-rose-500/30 flex items-center justify-center shadow-lg shadow-rose-950/40 active-press transition-all hover:scale-105"
     >
-      <X className="w-7 h-7 stroke-[3]" />
+      <X className="w-8 h-8 stroke-3" />
     </button>
   );
 }
