@@ -5,14 +5,16 @@ import {
   INITIAL_RECIPE_PRESETS,
   ensureHouseholdRecipes,
   fetchHouseholdMatches,
+  deleteHouseholdMatch, // <-- add
 } from './lib/supabaseClient';
 import Auth from './components/Auth';
 import SwipeDeck from './components/SwipDeck/SwipeDeck';
 import RecipeManager from './components/RecipeManager/RecipeManager.jsx';
 import MatchHistory from './components/Matches/MatchHistory.jsx';
-import Navbar from './components/Navbar';
+import Navbar from './components/Navbar/Navbar.jsx';
 
 export default function App() {
+  const [matchCount, setMatchCount] = useState(0);
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [recipes, setRecipes] = useState(INITIAL_RECIPE_PRESETS);
@@ -86,7 +88,9 @@ export default function App() {
     }
   };
 
-  console.log('Matches', matches);
+  useEffect(() => {
+    setMatchCount(matches.length);
+  }, [matches]);
 
   const handleDemoLogin = (email = 'couple@demo.app', name = 'Partner 1') => {
     const demoUser = {
@@ -113,6 +117,26 @@ export default function App() {
 
     // UI-only: swipe persistence happens in SwipeDeck
     setMatches((prev) => [recipe, ...prev]);
+  };
+
+  const handleUndoMatch = async (matchId, matchItem) => {
+    const recipeId = matchItem?.id ?? matchId;
+
+    // optimistic UI update
+    setMatches((prev) => prev.filter((m, idx) => (m.id ?? idx) !== recipeId));
+
+    try {
+      if (isConfigured && profile?.household_id && recipeId) {
+        await deleteHouseholdMatch(profile.household_id, recipeId);
+      }
+    } catch (err) {
+      console.error('Failed to undo match:', err);
+      // resync from backend on failure
+      if (profile?.household_id) {
+        const latest = await fetchHouseholdMatches(profile.household_id);
+        setMatches(latest);
+      }
+    }
   };
 
   useEffect(() => {
@@ -171,7 +195,7 @@ export default function App() {
         setActiveTab={setActiveTab}
         user={user}
         profile={profile}
-        matchCount={matches.length}
+        matchCount={matchCount}
         onOpenProfile={() => setActiveTab('profile')}
       />
 
@@ -200,6 +224,8 @@ export default function App() {
           <MatchHistory
             matches={matches}
             onSelectRecipe={() => setActiveTab('swipe')}
+            onMatchCountChange={setMatchCount}
+            onUndoMatch={handleUndoMatch} // <-- add
           />
         )}
 
