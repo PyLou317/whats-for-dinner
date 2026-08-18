@@ -2,16 +2,16 @@ import React, { useState, useEffect } from 'react';
 import {
   supabase,
   isConfigured,
-  INITIAL_RECIPE_PRESETS,
-  ensureHouseholdRecipes,
   fetchHouseholdMatches,
-  deleteHouseholdMatch, // <-- add
+  deleteHouseholdMatch,
+  ensureHouseholdRecipes,
+  INITIAL_RECIPE_PRESETS, // keep only if this is actually exported
 } from './lib/supabaseClient';
-import Auth from './components/Auth';
-import SwipeDeck from './components/SwipDeck/SwipeDeck';
-import RecipeManager from './components/RecipeManager/RecipeManager.jsx';
-import MatchHistory from './components/Matches/MatchHistory.jsx';
-import Navbar from './components/Navbar/Navbar.jsx';
+import Auth from './pages/profile/Auth.jsx';
+import SwipeDeck from './pages/swipeDeck/SwipeDeck.jsx';
+import RecipeManager from './pages/recipeManager/RecipeManager.jsx';
+import MatchHistory from './pages/matches/MatchHistory.jsx';
+import Navbar from './pages/navbar/Navbar.jsx';
 
 export default function App() {
   const [matchCount, setMatchCount] = useState(0);
