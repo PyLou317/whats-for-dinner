@@ -220,3 +220,20 @@ export async function fetchHouseholdMatches(householdId, swipeDate = null) {
     return [];
   }
 }
+
+// Delete a household match
+export async function deleteHouseholdMatch(householdId, recipeId, matchDate) {
+  if (!isConfigured) return { data: null, error: null };
+
+  let query = supabase
+    .from('matches')
+    .delete()
+    .eq('household_id', householdId)
+    .eq('recipe_id', recipeId);
+
+  if (matchDate) {
+    query = query.eq('match_date', matchDate);
+  }
+
+  return query;
+}
