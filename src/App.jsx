@@ -1,17 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from 'react-router-dom';
 import {
   supabase,
   isConfigured,
   fetchHouseholdMatches,
   deleteHouseholdMatch,
   ensureHouseholdRecipes,
-  INITIAL_RECIPE_PRESETS, // keep only if this is actually exported
+  INITIAL_RECIPE_PRESETS,
 } from './lib/supabaseClient';
+
 import Auth from './pages/profile/Auth.jsx';
 import SwipeDeck from './pages/swipeDeck/SwipeDeck.jsx';
 import RecipeManager from './pages/recipeManager/RecipeManager.jsx';
 import MatchHistory from './pages/matches/MatchHistory.jsx';
-import Navbar from './pages/navbar/Navbar.jsx';
+import Navbar from './components/navbar/Navbar.jsx';
+import BottomNav from './components/navbar/BottomNav.jsx';
+import OnboardingPage from './pages/onboarding/OnboardingPage.jsx';
 
 export default function App() {
   const [matchCount, setMatchCount] = useState(0);
@@ -19,10 +29,28 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [recipes, setRecipes] = useState(INITIAL_RECIPE_PRESETS);
   const [matches, setMatches] = useState([]);
-  const [activeTab, setActiveTab] = useState('swipe');
   const [loadingAuth, setLoadingAuth] = useState(true);
 
-  // Listen for Supabase Auth changes
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const isOnboardingRoute = location.pathname === '/onboarding';
+  const isMatchesRoute = location.pathname === '/matches';
+
+  const activeTab = useMemo(() => {
+    if (location.pathname === '/cookbook') return 'cookbook';
+    if (location.pathname === '/matches') return 'matches';
+    if (location.pathname === '/profile') return 'profile';
+    return 'swipe';
+  }, [location.pathname]);
+
+  const setActiveTab = (tab) => {
+    if (tab === 'cookbook') return navigate('/cookbook');
+    if (tab === 'matches') return navigate('/matches');
+    if (tab === 'profile') return navigate('/profile');
+    return navigate('/');
+  };
+
   useEffect(() => {
     if (!isConfigured) {
       setLoadingAuth(false);
@@ -60,25 +88,45 @@ export default function App() {
         .from('profiles')
         .select('*, households(invite_code)')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
 
-      if (prof) {
-        setProfile({
-          ...prof,
-          invite_code: prof.households?.invite_code || null,
-        });
+      if (error || !prof) {
+        await supabase.auth.signOut();
+        setUser(null);
+        setProfile(null);
+        setRecipes(INITIAL_RECIPE_PRESETS);
+        setMatches([]);
+        return;
+      }
 
-        if (prof.household_id) {
-          const householdRecipes = await ensureHouseholdRecipes(
-            prof.household_id,
-            userId,
-          );
-          setRecipes(householdRecipes);
+      setProfile({
+        ...prof,
+        invite_code: prof.households?.invite_code || null,
+      });
 
-          const existingMatches = await fetchHouseholdMatches(
-            prof.household_id,
-          );
-          setMatches(existingMatches);
+      if (prof.household_id) {
+        const householdRecipes = await ensureHouseholdRecipes(
+          prof.household_id,
+          userId,
+        );
+        setRecipes(householdRecipes);
+
+        const existingMatches = await fetchHouseholdMatches(prof.household_id);
+        setMatches(existingMatches);
+
+        // New-user check: no swipes yet => onboarding
+        const { data: mySwipes } = await supabase
+          .from('swipes')
+          .select('id')
+          .eq('household_id', prof.household_id)
+          .eq('user_id', userId)
+          .limit(1);
+
+        const isNewUser = !mySwipes || mySwipes.length === 0;
+        if (isNewUser) {
+          navigate('/onboarding', { replace: true });
+        } else if (location.pathname === '/' || location.pathname === '') {
+          navigate('/', { replace: true });
         }
       }
     } catch (err) {
@@ -93,36 +141,31 @@ export default function App() {
   }, [matches]);
 
   const handleDemoLogin = (email = 'couple@demo.app', name = 'Partner 1') => {
-    const demoUser = {
-      id: 'demo-user-1',
-      email: email,
-    };
+    const demoUser = { id: 'demo-user-1', email };
     const demoProfile = {
       id: 'demo-user-1',
-      email: email,
+      email,
       display_name: name,
       household_id: 'demo-household-123',
       invite_code: 'DIN-9X2Y',
       partner_name: 'Alex (Partner)',
     };
+
     setUser(demoUser);
     setProfile(demoProfile);
     setRecipes(INITIAL_RECIPE_PRESETS);
     setLoadingAuth(false);
+    navigate('/', { replace: true });
   };
 
   const handleAddMatch = async (recipe) => {
     if (!recipe?.id) return;
     if (matches.some((m) => m.id === recipe.id)) return;
-
-    // UI-only: swipe persistence happens in SwipeDeck
     setMatches((prev) => [recipe, ...prev]);
   };
 
   const handleUndoMatch = async (matchId, matchItem) => {
     const recipeId = matchItem?.id ?? matchId;
-
-    // optimistic UI update
     setMatches((prev) => prev.filter((m, idx) => (m.id ?? idx) !== recipeId));
 
     try {
@@ -131,7 +174,6 @@ export default function App() {
       }
     } catch (err) {
       console.error('Failed to undo match:', err);
-      // resync from backend on failure
       if (profile?.household_id) {
         const latest = await fetchHouseholdMatches(profile.household_id);
         setMatches(latest);
@@ -141,7 +183,7 @@ export default function App() {
 
   useEffect(() => {
     if (!isConfigured) return;
-    if (activeTab !== 'matches') return;
+    if (!isMatchesRoute) return;
     if (!profile?.household_id) return;
 
     let cancelled = false;
@@ -152,11 +194,10 @@ export default function App() {
     };
 
     refreshMatches();
-
     return () => {
       cancelled = true;
     };
-  }, [activeTab, profile?.household_id]);
+  }, [isMatchesRoute, profile?.household_id]);
 
   if (loadingAuth) {
     return (
@@ -169,7 +210,6 @@ export default function App() {
     );
   }
 
-  // Not logged in or needs household onboarding
   if (!user || !profile?.household_id) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col text-slate-100 selection:bg-rose-500 selection:text-white">
@@ -185,60 +225,86 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col text-slate-100 relative pb-36 selection:bg-rose-500 selection:text-white">
-      {/* Background Ambient Glow */}
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-rose-500/10 blur-[120px] pointer-events-none rounded-full" />
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-amber-500/10 blur-[120px] pointer-events-none rounded-full" />
+      {!isOnboardingRoute && (
+        <>
+          <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-rose-500/10 blur-[120px] pointer-events-none rounded-full" />
+          <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-amber-500/10 blur-[120px] pointer-events-none rounded-full" />
+          <Navbar
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            user={user}
+            profile={profile}
+            matchCount={matchCount}
+            onOpenProfile={() => navigate('/profile')}
+          />
+        </>
+      )}
 
-      {/* Top Header */}
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        user={user}
-        profile={profile}
-        matchCount={matchCount}
-        onOpenProfile={() => setActiveTab('profile')}
-      />
-
-      {/* Main Content Area */}
       <main className="flex-1 flex flex-col">
-        {activeTab === 'swipe' && (
-          <SwipeDeck
-            user={user}
-            profile={profile}
-            recipes={recipes}
-            onAddMatch={handleAddMatch}
-            onNavigateToCookbook={() => setActiveTab('cookbook')}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <SwipeDeck
+                user={user}
+                profile={profile}
+                recipes={recipes}
+                onAddMatch={handleAddMatch}
+                onNavigateToCookbook={() => navigate('/cookbook')}
+              />
+            }
           />
-        )}
-
-        {activeTab === 'cookbook' && (
-          <RecipeManager
-            user={user}
-            profile={profile}
-            recipes={recipes}
-            onRecipesChange={(updated) => setRecipes(updated)}
+          <Route path="/swipe" element={<Navigate to="/" replace />} />
+          <Route
+            path="/cookbook"
+            element={
+              <RecipeManager
+                user={user}
+                profile={profile}
+                recipes={recipes}
+                onRecipesChange={(updated) => setRecipes(updated)}
+              />
+            }
           />
-        )}
-
-        {activeTab === 'matches' && (
-          <MatchHistory
-            matches={matches}
-            onSelectRecipe={() => setActiveTab('swipe')}
-            onMatchCountChange={setMatchCount}
-            onUndoMatch={handleUndoMatch} // <-- add
+          <Route
+            path="/matches"
+            element={
+              <MatchHistory
+                matches={matches}
+                onSelectRecipe={() => navigate('/')}
+                onMatchCountChange={setMatchCount}
+                onUndoMatch={handleUndoMatch}
+              />
+            }
           />
-        )}
-
-        {activeTab === 'profile' && (
-          <Auth
-            user={user}
-            profile={profile}
-            onProfileUpdate={(updatedProf) => setProfile(updatedProf)}
-            onDemoLogin={handleDemoLogin}
-            onCloseProfile={() => setActiveTab('swipe')}
+          <Route
+            path="/profile"
+            element={
+              <Auth
+                user={user}
+                profile={profile}
+                onProfileUpdate={(updatedProf) => setProfile(updatedProf)}
+                onDemoLogin={handleDemoLogin}
+                onCloseProfile={() => navigate('/')}
+              />
+            }
           />
-        )}
+          <Route
+            path="/onboarding"
+            element={
+              <OnboardingPage
+                user={user}
+                profile={profile}
+                recipes={recipes}
+                onAddMatch={handleAddMatch}
+              />
+            }
+          />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
+
+      {!isOnboardingRoute && <BottomNav />}
     </div>
   );
 }
