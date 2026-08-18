@@ -11,54 +11,78 @@ const fetchTodaySwipesAndRecipes = async ({
   setUserSwipes,
   setPartnerSwipes,
   setLoading,
-  onMatchesLoaded, // optional callback
+  onMatchesLoaded,
+  onOnboardingStateChange,
   user,
   profile,
   recipes,
   todayStr,
   isConfigured,
+  onboardingOnly = false,
 }) => {
   setLoading(true);
+
   let allRecipes = recipes.length > 0 ? recipes : INITIAL_RECIPE_PRESETS;
   let mySwiped = new Set();
   let mySwipesObj = {};
   let partnerSwipesObj = {};
 
-  const storageKey = `whats_for_dinner_swipes_${user?.id || 'demo'}_${todayStr}`;
+  const storageKey = onboardingOnly
+    ? `whats_for_dinner_onboarding_swipes_${user?.id || 'demo'}`
+    : `whats_for_dinner_swipes_${user?.id || 'demo'}_${todayStr}`;
+
   try {
     const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      JSON.parse(saved).forEach((id) => mySwiped.add(id));
-    }
+    if (saved) JSON.parse(saved).forEach((id) => mySwiped.add(id));
   } catch (e) {}
 
   if (isConfigured && profile?.household_id) {
     try {
-      allRecipes = await ensureHouseholdRecipes(profile.household_id, user?.id);
+      const presetIds = INITIAL_RECIPE_PRESETS.map((r) => r.id);
 
-      const { data: dbSwipes } = await supabase
+      // Onboarding uses all-time swipes for preset cards (not swipe_date)
+      const swipeQuery = supabase
         .from('swipes')
         .select('*')
-        .eq('household_id', profile.household_id)
-        .eq('swipe_date', todayStr);
+        .eq('household_id', profile.household_id);
+
+      const { data: dbSwipes } = onboardingOnly
+        ? await swipeQuery.eq('user_id', user?.id).in('recipe_id', presetIds)
+        : await swipeQuery.eq('swipe_date', todayStr);
 
       if (dbSwipes) {
         dbSwipes.forEach((s) => {
           if (s.user_id === user?.id) {
             mySwiped.add(s.recipe_id);
             mySwipesObj[s.recipe_id] = s.decision;
-          } else {
+          } else if (!onboardingOnly) {
             partnerSwipesObj[s.recipe_id] = s.decision;
           }
         });
       }
 
-      if (onMatchesLoaded) {
-        const matches = await fetchHouseholdMatches(
+      if (onboardingOnly) {
+        allRecipes = INITIAL_RECIPE_PRESETS;
+        const remaining = allRecipes.filter((r) => !mySwiped.has(r.id)).length;
+
+        onOnboardingStateChange?.({
+          active: true,
+          total: allRecipes.length,
+          remaining,
+          complete: remaining === 0,
+        });
+      } else {
+        allRecipes = await ensureHouseholdRecipes(
           profile.household_id,
-          todayStr,
+          user?.id,
         );
-        onMatchesLoaded(matches);
+        if (onMatchesLoaded) {
+          const matches = await fetchHouseholdMatches(
+            profile.household_id,
+            todayStr,
+          );
+          onMatchesLoaded(matches);
+        }
       }
     } catch (err) {
       console.error('Error fetching swipes:', err);
