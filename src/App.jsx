@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Routes,
   Route,
@@ -36,20 +36,6 @@ export default function App() {
 
   const isOnboardingRoute = location.pathname === '/onboarding';
   const isMatchesRoute = location.pathname === '/matches';
-
-  const activeTab = useMemo(() => {
-    if (location.pathname === '/cookbook') return 'cookbook';
-    if (location.pathname === '/matches') return 'matches';
-    if (location.pathname === '/profile') return 'profile';
-    return 'swipe';
-  }, [location.pathname]);
-
-  const setActiveTab = (tab) => {
-    if (tab === 'cookbook') return navigate('/cookbook');
-    if (tab === 'matches') return navigate('/matches');
-    if (tab === 'profile') return navigate('/profile');
-    return navigate('/');
-  };
 
   useEffect(() => {
     if (!isConfigured) {
@@ -225,20 +211,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col text-slate-100 relative pb-36 selection:bg-rose-500 selection:text-white">
-      {!isOnboardingRoute && (
-        <>
-          <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-rose-500/10 blur-[120px] pointer-events-none rounded-full" />
-          <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-96 bg-amber-500/10 blur-[120px] pointer-events-none rounded-full" />
-          <Navbar
-            activeTab={activeTab}
-            setActiveTab={setActiveTab}
-            user={user}
-            profile={profile}
-            matchCount={matchCount}
-            onOpenProfile={() => navigate('/profile')}
-          />
-        </>
-      )}
+      {!isOnboardingRoute && <BottomNav matchCount={matchCount} />}
 
       <main className="flex-1 flex flex-col">
         <Routes>
@@ -250,6 +223,7 @@ export default function App() {
                 profile={profile}
                 recipes={recipes}
                 onAddMatch={handleAddMatch}
+                onMatchesLoaded={setMatches}
                 onNavigateToCookbook={() => navigate('/cookbook')}
               />
             }
@@ -297,14 +271,13 @@ export default function App() {
                 profile={profile}
                 recipes={recipes}
                 onAddMatch={handleAddMatch}
+                onMatchesLoaded={setMatches}
               />
             }
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-
-      {!isOnboardingRoute && <BottomNav />}
     </div>
   );
 }
