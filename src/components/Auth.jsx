@@ -113,8 +113,9 @@ export default function Auth({
 
     try {
       if (!isConfigured) {
-        onDemoLogin(email || "demo@couples.app", displayName || "Partner 1");
-        setLoading(false);
+        setErrorMsg(
+          "Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY (or VITE_SUPABASE_ANON_KEY) before creating an account.",
+        );
         return;
       }
 
@@ -124,11 +125,26 @@ export default function Auth({
           password,
           options: {
             data: { display_name: displayName || email.split("@")[0] },
+            emailRedirectTo: window.location.origin,
           },
         });
         if (error) throw error;
+        if (!data.user) {
+          throw new Error(
+            "Supabase did not create an account. Please try again.",
+          );
+        }
+        if (data.user.identities?.length === 0) {
+          setErrorMsg(
+            "An account with this email may already exist. Try signing in or reset your password.",
+          );
+          return;
+        }
+        setPassword("");
         setSuccessMsg(
-          "Account created successfully! Welcome to What's For Dinner.",
+          data.session
+            ? "Account created successfully! Welcome to What's For Dinner."
+            : "Account created! Check your email to confirm your address, then sign in.",
         );
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
